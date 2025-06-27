@@ -1,28 +1,27 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { FileText, X } from "lucide-react";
+import { FileText, X, Loader, CheckCircle, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { pdfBooksAPI } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Set up PDF.js worker - use a stable CDN
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
 const UploadForm = () => {
   const router = useRouter();
   const { user } = useAuth();
   const [formData, setFormData] = useState({
-    title: "",
-    author: "",
-    genre: "",
-    description: "",
     pdfFile: null,
     coverImage: null,
-    category: 'personal',
-    language: 'English',
-    publishedYear: '',
-    pageCount: '',
-    uploadReason: ''
+
+    extractedMetadata: null
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [extractionStatus, setExtractionStatus] = useState(null); // 'success', 'error', null
 
   const genres = [
     "Fiction", "Non-Fiction", "Mystery", "Romance", "Science Fiction", 
@@ -52,7 +51,100 @@ const UploadForm = () => {
   };
 
   
-  const handlePDFChange = (e) => {
+  // Function to extract first page of PDF as cover image
+  const extractFirstPageAsCover = async (file) => {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+      const pdf = await loadingTask.promise;
+      const page = await pdf.getPage(1);
+      
+      const scale = 2; // Higher scale for better quality
+      const viewport = page.getViewport({ scale });
+      
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
+      
+      const renderContext = {
+        canvasContext: context,
+        viewport: viewport,
+      };
+      
+      await page.render(renderContext).promise;
+      
+      // Convert canvas to base64 image
+      return canvas.toDataURL('image/jpeg', 0.8);
+    } catch (error) {
+      console.error('Error extracting first page as cover:', error);
+      return null;
+    }
+  };
+
+  // Function to extract metadata from PDF
+  const extractPDFMetadata = async (file) => {
+    setIsExtracting(true);
+    setExtractionStatus(null);
+    
+    try {
+      // Extract first page as cover image
+      const coverImage = await extractFirstPageAsCover(file);
+      
+      // Create FormData for metadata extraction
+      const extractFormData = new FormData();
+      extractFormData.append('pdf', file);
+      
+      // Call API to extract metadata
+      const response = await fetch('/api/extract-pdf-metadata', {
+        method: 'POST',
+        body: extractFormData,
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to extract metadata');
+      }
+      
+      const metadata = await response.json();
+      
+      // Add the extracted first page cover image
+      metadata.coverImage = coverImage;
+      
+      setFormData(prev => ({
+        ...prev,
+        extractedMetadata: metadata
+      }));
+      
+      setExtractionStatus('success');
+    } catch (error) {
+      console.error('Error extracting metadata:', error);
+      setExtractionStatus('error');
+      
+      // Fallback: use filename as title
+      const title = file.name.replace('.pdf', '');
+      const author = 'Unknown Author';
+      
+      const fallbackMetadata = {
+        title: title,
+        author: author,
+        genre: 'Unknown',
+        description: '',
+        publishedYear: '',
+        pageCount: '',
+        language: 'English',
+        coverImage: null // No cover in fallback case
+      };
+      
+      setFormData(prev => ({
+        ...prev,
+        extractedMetadata: fallbackMetadata
+      }));
+    } finally {
+      setIsExtracting(false);
+    }
+  };
+
+  const handlePDFChange = async (e) => {
     const file = e.target.files[0];
     if (file) {
       if (file.type !== 'application/pdf') {
@@ -63,18 +155,25 @@ const UploadForm = () => {
         alert('PDF file size must be less than 50MB');
         return;
       }
+      
       setFormData(prev => ({
         ...prev,
-        pdfFile: file
+        pdfFile: file,
+        extractedMetadata: null
       }));
+      
+      // Automatically extract metadata
+      await extractPDFMetadata(file);
     }
   };
 
   const removePDFFile = () => {
     setFormData(prev => ({
       ...prev,
-      pdfFile: null
+      pdfFile: null,
+      extractedMetadata: null
     }));
+    setExtractionStatus(null);
   };
 
   // Handle cover image selection
@@ -117,28 +216,33 @@ const UploadForm = () => {
         return;
       }
 
-      if (!formData.uploadReason) {
-        alert('Please specify the reason for uploading');
-        setIsSubmitting(false);
-        return;
-      }
-
+      
+      // Use extracted metadata for upload
+      const metadata = formData.extractedMetadata;
+      
       // Create form data for PDF upload using existing API
       const pdfFormData = new FormData();
       pdfFormData.append('pdf', formData.pdfFile);
-      pdfFormData.append('title', formData.title);
-      pdfFormData.append('author', formData.author);
-      pdfFormData.append('description', formData.description);
-      pdfFormData.append('category', formData.category);
-      pdfFormData.append('genre', formData.genre);
-      pdfFormData.append('publishedYear', formData.publishedYear);
-      pdfFormData.append('language', formData.language);
-      pdfFormData.append('pageCount', formData.pageCount);
-      pdfFormData.append('uploadReason', formData.uploadReason);
+      pdfFormData.append('title', metadata.title);
+      pdfFormData.append('author', metadata.author);
+      pdfFormData.append('description', metadata.description);
+      pdfFormData.append('category', metadata.category);
+      pdfFormData.append('genre', metadata.genre);
+      pdfFormData.append('publishedYear', metadata.publishedYear);
+      pdfFormData.append('language', metadata.language);
+      pdfFormData.append('pageCount', metadata.pageCount);
+      pdfFormData.append('uploadReason', 'Auto-uploaded via smart PDF system');
       pdfFormData.append('uploadedBy', user.id);
       pdfFormData.append('uploaderName', user.name);
+      
+      // Use custom cover if uploaded, otherwise use extracted cover
       if (formData.coverImage) {
         pdfFormData.append('coverImage', formData.coverImage);
+      } else if (metadata.coverImage) {
+        // Convert base64 to blob for upload
+        const response = await fetch(metadata.coverImage);
+        const blob = await response.blob();
+        pdfFormData.append('coverImage', blob, 'auto-generated-cover.jpg');
       }
 
       const response = await pdfBooksAPI.uploadPDFBook(pdfFormData);
@@ -147,18 +251,11 @@ const UploadForm = () => {
       
       // Reset form
       setFormData({
-        title: "",
-        author: "",
-        genre: "",
-        description: "",
         pdfFile: null,
         coverImage: null,
-        category: 'personal',
-        language: 'English',
-        publishedYear: '',
-        pageCount: '',
-        uploadReason: ''
+        extractedMetadata: null
       });
+      setExtractionStatus(null);
 
       router.push('/my-books');
     } catch (error) {
@@ -174,19 +271,29 @@ const UploadForm = () => {
       <div className="bg-white rounded-2xl shadow-lg p-6 sm:p-8">
         <div className="text-center mb-8">
           <FileText className="w-16 h-16 text-[#A47148] mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-[#5D4037] mb-2">Upload PDF Book</h2>
-          <p className="text-gray-600">Share your PDF books with the community</p>
-          <p className="text-sm text-[#A47148] mt-2">📖 You can upload a custom cover image, otherwise the first page of your PDF will be used</p>
+          <h2 className="text-2xl font-bold text-[#5D4037] mb-2">Upload PDF Document</h2>
+          <p className="text-gray-600">Upload your PDF file and we will automatically extract all relevant information.</p>
+          <p className="text-sm text-[#A47148] mt-2">Automated metadata extraction • Cover generation • Content categorization • Description creation</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* PDF Upload Section */}
-          <div className="text-center">
+          {/* Upload Sections */}
+          <div className="flex flex-col md:flex-row gap-8">
+            {/* PDF Upload Section */}
+            <div className="text-center md:flex-1">
             <div className="mx-auto w-64 h-80 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center relative">
               {formData.pdfFile ? (
                 <div className="text-center">
                   <div className="relative">
-                    <FileText className="w-20 h-20 text-green-600 mx-auto mb-4" />
+                    {isExtracting ? (
+                      <Loader className="w-20 h-20 text-blue-600 mx-auto mb-4 animate-spin" />
+                    ) : extractionStatus === 'success' ? (
+                      <CheckCircle className="w-20 h-20 text-green-600 mx-auto mb-4" />
+                    ) : extractionStatus === 'error' ? (
+                      <AlertCircle className="w-20 h-20 text-orange-600 mx-auto mb-4" />
+                    ) : (
+                      <FileText className="w-20 h-20 text-green-600 mx-auto mb-4" />
+                    )}
                     <button
                       type="button"
                       onClick={removePDFFile}
@@ -196,20 +303,32 @@ const UploadForm = () => {
                     </button>
                   </div>
                   <p className="text-lg text-green-600 font-medium mb-2">{formData.pdfFile.name}</p>
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-gray-500 mb-2">
                     {(formData.pdfFile.size / (1024 * 1024)).toFixed(2)} MB
                   </p>
-                  <p className="text-xs text-[#A47148] mt-2">
-                    ✓ Cover will be generated from first page
-                  </p>
+                  {isExtracting && (
+                    <p className="text-xs text-blue-600 mt-2">
+                      Processing document and extracting information...
+                    </p>
+                  )}
+                  {extractionStatus === 'success' && (
+                    <p className="text-xs text-green-600 mt-2">
+                      Document processed successfully
+                    </p>
+                  )}
+                  {extractionStatus === 'error' && (
+                    <p className="text-xs text-orange-600 mt-2">
+                      Using filename for basic information
+                    </p>
+                  )}
                 </div>
               ) : (
                 <>
                   <FileText className="w-16 h-16 text-gray-400 mb-4" />
-                  <p className="text-lg text-gray-700 font-medium mb-2">Choose PDF File</p>
-                  <p className="text-sm text-gray-500 mb-2">Click or drag to upload</p>
+                  <p className="text-lg text-gray-700 font-medium mb-2">Select PDF File</p>
+                  <p className="text-sm text-gray-500 mb-2">Click to browse or drag file here</p>
                   <p className="text-xs text-[#A47148]">
-                    📄 First page becomes cover automatically
+                    Automatic extraction of title, author, genre and metadata
                   </p>
                 </>
               )}
@@ -218,6 +337,7 @@ const UploadForm = () => {
                 accept=".pdf"
                 onChange={handlePDFChange}
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                disabled={isExtracting}
               />
             </div>
             <p className="text-xs text-gray-500 mt-3">
@@ -226,14 +346,14 @@ const UploadForm = () => {
             </p>
           </div>
 
-          {/* Cover Image Upload Section (Optional) */}
-          <div className="text-center">
-            <div className="mx-auto w-48 md:w-64 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center relative">
+          {/* Cover Image Section */}
+            <div className="text-center md:flex-1">
+            <div className="mx-auto w-48 md:w-64 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center relative min-h-[300px]">
               {formData.coverImage ? (
                 <div className="relative w-full h-full">
                   <img
                     src={URL.createObjectURL(formData.coverImage)}
-                    alt="Cover preview"
+                    alt="Custom cover preview"
                     className="object-contain w-full max-h-96 rounded-lg"
                   />
                   <button
@@ -243,12 +363,33 @@ const UploadForm = () => {
                   >
                     <X className="w-4 h-4" />
                   </button>
+                  <div className="absolute bottom-2 left-2 bg-blue-600 text-white text-xs px-2 py-1 rounded">
+                    Custom Cover
+                  </div>
+                </div>
+              ) : formData.extractedMetadata?.coverImage ? (
+                <div className="relative w-full h-full">
+                  <img
+                    src={formData.extractedMetadata.coverImage}
+                    alt="Auto-generated cover"
+                    className="object-contain w-full max-h-96 rounded-lg"
+                  />
+                  <div className="absolute bottom-2 left-2 bg-green-600 text-white text-xs px-2 py-1 rounded">
+                    First Page
+                  </div>
+                  <div className="absolute top-2 right-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
+                    Click to upload custom
+                  </div>
                 </div>
               ) : (
                 <>
                   <FileText className="w-10 h-10 text-gray-400 mb-2" />
-                  <p className="text-sm text-gray-700 font-medium mb-1">Choose Cover Image</p>
-                  <p className="text-xs text-gray-500">Click or drag to upload</p>
+                  <p className="text-sm text-gray-700 font-medium mb-1">
+                    {formData.pdfFile ? 'Generating cover...' : 'Cover Image'}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {formData.pdfFile ? 'Extracting first page as cover image' : 'First page will be used as cover image'}
+                  </p>
                 </>
               )}
               <input
@@ -259,185 +400,74 @@ const UploadForm = () => {
               />
             </div>
             <p className="text-xs text-gray-500 mt-2">
-              Optional • Max 5MB • Formats: JPG, PNG, WEBP
+              {formData.extractedMetadata?.coverImage ? 
+                "Cover generated from first page • Upload custom image to override" : 
+                "Cover will be generated from first page • Custom upload optional"
+              }
             </p>
-          </div>
-
-          {/* Form Fields */}
-          <div className="grid md:grid-cols-2 gap-6">
-            {/* Book Title */}
-            <div>
-              <label htmlFor="title" className="block text-sm font-semibold text-[#5D4037] mb-2">
-                Book Title *
-              </label> 
-              <input
-                type="text"
-                id="title"
-                name="title"
-                value={formData.title}
-                onChange={handleInputChange}
-                required
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#A47148] focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
-                placeholder="Enter book title"
-              />
-            </div>
-
-            {/* Author */}
-            <div>
-              <label htmlFor="author" className="block text-sm font-semibold text-[#5D4037] mb-2">
-                Author *
-              </label>
-              <input
-                type="text"
-                id="author"
-                name="author"
-                value={formData.author}
-                onChange={handleInputChange}
-                required
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#A47148] focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
-                placeholder="Enter author name"
-              />
             </div>
           </div>
 
-          {/* Genre */}
-          <div>
-            <label htmlFor="genre" className="block text-sm font-semibold text-[#5D4037] mb-2">
-              Genre *
-            </label>
-            <select
-              id="genre"
-              name="genre"
-              value={formData.genre}
-              onChange={handleInputChange}
-              required
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#A47148] focus:border-transparent transition-all text-gray-900"
-            >
-              <option value="">Select a genre</option>
-              {genres.map((genre) => (
-                <option key={genre} value={genre}>
-                  {genre}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Additional PDF fields */}
-          <div className="grid md:grid-cols-3 gap-4">
-            <div>
-              <label htmlFor="category" className="block text-sm font-semibold text-[#5D4037] mb-2">
-                Category *
-              </label>
-              <select
-                id="category"
-                name="category"
-                value={formData.category}
-                onChange={handleInputChange}
-                required
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#A47148] focus:border-transparent transition-all text-gray-900"
-              >
-                {categories.map(cat => (
-                  <option key={cat.value} value={cat.value}>{cat.label}</option>
-                ))}
-              </select>
+          {/* Extracted Metadata Display */}
+          {formData.extractedMetadata && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-6">
+              <h3 className="text-lg font-semibold text-green-800 mb-4 flex items-center gap-2">
+                <CheckCircle className="w-5 h-5" />
+                Document Information
+              </h3>
+              <div className="grid md:grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="font-medium text-gray-700">Title:</span>
+                  <p className="text-gray-900">{formData.extractedMetadata.title}</p>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-700">Author:</span>
+                  <p className="text-gray-900">{formData.extractedMetadata.author}</p>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-700">Genre:</span>
+                  <p className="text-gray-900">{formData.extractedMetadata.genre}</p>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-700">Language:</span>
+                  <p className="text-gray-900">{formData.extractedMetadata.language}</p>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-700">Category:</span>
+                  <p className="text-gray-900 capitalize">{formData.extractedMetadata.category?.replace('-', ' ')}</p>
+                </div>
+                {formData.extractedMetadata.publishedYear && (
+                  <div>
+                    <span className="font-medium text-gray-700">Published:</span>
+                    <p className="text-gray-900">{formData.extractedMetadata.publishedYear}</p>
+                  </div>
+                )}
+                {formData.extractedMetadata.pageCount && (
+                  <div>
+                    <span className="font-medium text-gray-700">Pages:</span>
+                    <p className="text-gray-900">{formData.extractedMetadata.pageCount}</p>
+                  </div>
+                )}
+              </div>
+              {formData.extractedMetadata.description && (
+                <div className="mt-4">
+                  <span className="font-medium text-gray-700">Description:</span>
+                  <p className="text-gray-900 mt-1">{formData.extractedMetadata.description}</p>
+                </div>
+              )}
             </div>
+          )}
 
-            <div>
-              <label htmlFor="language" className="block text-sm font-semibold text-[#5D4037] mb-2">
-                Language
-              </label>
-              <select
-                id="language"
-                name="language"
-                value={formData.language}
-                onChange={handleInputChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#A47148] focus:border-transparent transition-all text-gray-900"
-              >
-                {languages.map(language => (
-                  <option key={language} value={language}>{language}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label htmlFor="publishedYear" className="block text-sm font-semibold text-[#5D4037] mb-2">
-                Published Year
-              </label>
-              <input
-                type="number"
-                id="publishedYear"
-                name="publishedYear"
-                value={formData.publishedYear}
-                onChange={handleInputChange}
-                min="1000"
-                max={new Date().getFullYear()}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#A47148] focus:border-transparent transition-all text-gray-900"
-                placeholder="e.g., 2023"
-              />
-            </div>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="pageCount" className="block text-sm font-semibold text-[#5D4037] mb-2">
-                Page Count
-              </label>
-              <input
-                type="number"
-                id="pageCount"
-                name="pageCount"
-                value={formData.pageCount}
-                onChange={handleInputChange}
-                min="1"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#A47148] focus:border-transparent transition-all text-gray-900"
-                placeholder="Number of pages"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label htmlFor="uploadReason" className="block text-sm font-semibold text-[#5D4037] mb-2">
-              Reason for Upload *
-            </label>
-            <textarea
-              id="uploadReason"
-              name="uploadReason"
-              value={formData.uploadReason}
-              onChange={handleInputChange}
-              rows={3}
-              required
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#A47148] focus:border-transparent transition-all resize-none text-gray-900 placeholder-gray-500"
-              placeholder="Why are you uploading this PDF? (e.g., personal work, educational use, public domain, etc.)"
-            />
-          </div>
-            
-          {/* Description */}
-          <div>
-            <label htmlFor="description" className="block text-sm font-semibold text-[#5D4037] mb-2">
-              Description
-            </label>
-            <textarea
-              id="description"
-              name="description"
-              value={formData.description}
-              onChange={handleInputChange}
-              rows={4}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#A47148] focus:border-transparent transition-all resize-none text-gray-900 placeholder-gray-500"
-              placeholder="Enter book description (optional)"
-            />
-          </div>
-
-          {/* Submit Button */}
+          
+                    {/* Submit Button */}
           <div className="flex gap-4 pt-4">
             <button
               type="submit"
               disabled={
                 isSubmitting || 
-                !formData.title || 
-                !formData.author || 
-                !formData.genre ||
                 !formData.pdfFile ||
-                !formData.uploadReason
+                !formData.extractedMetadata ||
+                isExtracting
               }
               className="flex-1 bg-[#6D4C41] hover:bg-[#5D4037] disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 flex items-center justify-center gap-2"
             >
@@ -449,7 +479,7 @@ const UploadForm = () => {
               ) : (
                 <>
                   <FileText className="w-4 h-4" />
-                  Upload PDF Book
+                  Upload Document
                 </>
               )}
             </button>

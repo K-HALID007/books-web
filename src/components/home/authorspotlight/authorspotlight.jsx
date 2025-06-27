@@ -11,11 +11,11 @@ const authors = [
 
 export default function AuthorSpotlights() {
   return (
-    <section className="bg-[#F4EDE4] px-6 md:px-16 py-20">
-      <h2 className="text-3xl font-bold text-[#5D4037] mb-10 text-center">
+    <section className="bg-[#F4EDE4] px-4 sm:px-6 md:px-16 py-16 sm:py-20">
+      <h2 className="text-2xl sm:text-3xl font-bold text-[#5D4037] mb-8 sm:mb-10 text-center">
         Author <span className="text-[#A47148]">Spotlights</span>
       </h2>
-      <div className="grid md:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 sm:gap-8">
         {authors.map((author, i) => (
           <motion.div
             key={author.name}

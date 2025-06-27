@@ -38,7 +38,8 @@ const BookDetails = ({ bookId }) => {
         const markedPDFBooks = pdfBooks.map(b => ({
           ...b,
           isPDF: true,
-          coverImage: b.coverImage || b.cover
+          coverImage: b.coverImage || b.cover,
+  genre: b.category || b.genre
         }));
 
         const allBooks = [...regularBooks, ...markedPDFBooks];
@@ -123,7 +124,6 @@ const BookDetails = ({ bookId }) => {
   const handleDownloadPDF = async () => {
     try {
       // increment download count first
-      await pdfBooksAPI.incrementDownload(book._id).catch(() => {});
       const blob = await pdfBooksAPI.downloadPDFBook(book._id);
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -351,7 +351,7 @@ const BookDetails = ({ bookId }) => {
                   <div className="flex items-center gap-2">
                     <Tag className="w-5 h-5 text-[#6D4C41]" />
                     <span className="bg-[#F0E6D6] text-[#6D4C41] text-sm font-semibold px-4 py-2 rounded-full">
-                      {book.genre}
+                      {book.genre || 'Uncategorized'}
                     </span>
                   </div>
 

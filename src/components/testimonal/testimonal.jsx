@@ -17,12 +17,12 @@ export default function Testimonials() {
   const displayedTestimonials = showAll ? allTestimonials : allTestimonials.slice(0, 2);
 
   return (
-    <section className="bg-white px-6 md:px-16 py-20">
-      <h2 className="text-3xl font-bold text-[#5D4037] mb-12 text-center">
+    <section className="bg-white px-4 sm:px-6 md:px-16 py-16 sm:py-20">
+      <h2 className="text-2xl sm:text-3xl font-bold text-[#5D4037] mb-8 sm:mb-12 text-center">
         What Our <span className="text-[#A47148]">Readers Say</span>
       </h2>
 
-      <div className="grid md:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
         {displayedTestimonials.map((t, i) => (
           <blockquote
             key={i}

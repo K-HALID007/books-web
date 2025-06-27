@@ -11,7 +11,13 @@ const MyBooksMain = () => {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedGenre, setSelectedGenre] = useState("All");
-  const [viewMode, setViewMode] = useState("list"); // "list" or "grid"
+  const [viewMode, setViewMode] = useState(() => {
+    // Get saved view mode from localStorage, default to grid
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('booksViewMode') || 'grid';
+    }
+    return 'grid';
+  });
 
   // Helper function to get the correct image URL
   const getImageUrl = (book) => {
@@ -59,7 +65,8 @@ const MyBooksMain = () => {
           ...book,
           isPDF: true,
           // Ensure consistent field names
-          coverImage: book.coverImage || book.cover
+          coverImage: book.coverImage || book.cover,
+          genre: book.category || book.genre
         }));
 
         // Combine all books
@@ -81,6 +88,14 @@ const MyBooksMain = () => {
 
     fetchBooks();
   }, []);
+
+  // Handle view mode change and save to localStorage
+  const handleViewModeChange = (mode) => {
+    setViewMode(mode);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('booksViewMode', mode);
+    }
+  };
 
   const handleDeleteBook = async (bookId, isPDF = false) => {
     if (window.confirm("Are you sure you want to delete this book?")) {
@@ -129,35 +144,7 @@ const MyBooksMain = () => {
 
   return (
     <div className="min-h-screen bg-[#F4EDE4] pt-20">
-      {/* Header Section */}
-      <div className="bg-[#F4EDE4] border-b border-[#E0D5C7] py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-[#5D4037] flex items-center justify-center gap-4 mb-4">
-            <BookOpen className="w-12 h-12 lg:w-16 lg:h-16 text-[#A47148]" />
-            All Books
-          </h1>
-          <p className="text-[#6B4F3F] text-lg sm:text-xl max-w-2xl mx-auto">
-            {books.length === 0 
-              ? "Discover amazing books from our community" 
-              : `${books.length} ${books.length === 1 ? 'book' : 'books'} available to explore`
-            }
-          </p>
-          {books.length > 0 && (
-            <div className="mt-6 flex flex-wrap justify-center gap-4 text-sm">
-              <div className="bg-[#6D4C41] text-white px-4 py-2 rounded-full">
-                <span className="font-semibold">{genres.length - 1}</span> genres
-              </div>
-              <div className="bg-[#A47148] text-white px-4 py-2 rounded-full">
-                Latest: <span className="font-semibold">
-                  {books[books.length - 1]?.title || 'None'}
-                </span>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         {books.length === 0 ? (
           // Enhanced Empty State
           <div className="text-center py-20">
@@ -187,16 +174,16 @@ const MyBooksMain = () => {
         ) : (
           <>
             {/* Filters and View Toggle */}
-            <div className="mb-10">
+            <div className="mb-6">
               {/* View Mode Toggle */}
-              <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <Filter className="w-5 h-5 text-[#6D4C41]" />
                   <h3 className="text-lg font-semibold text-[#5D4037]">Filters & View</h3>
                 </div>
                 <div className="flex items-center gap-2 bg-white rounded-lg p-1 shadow-md">
                   <button
-                    onClick={() => setViewMode("list")}
+                    onClick={() => handleViewModeChange("list")}
                     className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
                       viewMode === "list"
                         ? "bg-[#6D4C41] text-white shadow-sm"
@@ -207,7 +194,7 @@ const MyBooksMain = () => {
                     List
                   </button>
                   <button
-                    onClick={() => setViewMode("grid")}
+                    onClick={() => handleViewModeChange("grid")}
                     className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
                       viewMode === "grid"
                         ? "bg-[#6D4C41] text-white shadow-sm"
@@ -244,12 +231,12 @@ const MyBooksMain = () => {
             {filteredBooks.length > 0 ? (
               viewMode === "list" ? (
                 // List View - Horizontal Cards
-                <div className="space-y-6">
+                <div className="space-y-4">
                   {filteredBooks.map((book) => (
                     <Link
                       key={book._id}
                       href={`/book/${book._id}`}
-                      className="block bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 group cursor-pointer"
+                      className="block bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-all duration-300 group cursor-pointer"
                     >
                       <div className="flex flex-col md:flex-row">
                         {/* Book Cover */}
@@ -333,12 +320,12 @@ const MyBooksMain = () => {
                 </div>
               ) : (
                 // Grid View - Compact Cards
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
                   {filteredBooks.map((book) => (
                     <Link
                       key={book._id}
                       href={`/book/${book._id}`}
-                      className="block bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 group cursor-pointer"
+                      className="block bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-all duration-300 group cursor-pointer"
                     >
                       {/* Book Cover */}
                       <div className="relative aspect-[3/4] bg-gray-100">
@@ -382,23 +369,19 @@ const MyBooksMain = () => {
                       </div>
 
                       {/* Book Info - Compact */}
-                      <div className="p-4">
-                        <h3 className="font-bold text-[#5D4037] text-lg mb-1 line-clamp-2 leading-tight">
+                      <div className="p-3">
+                        <h3 className="font-bold text-[#5D4037] text-sm mb-1 line-clamp-2 leading-tight">
                           {book.title}
                         </h3>
-                        <p className="text-[#A47148] font-semibold mb-3 text-sm">
+                        <p className="text-[#A47148] font-medium mb-2 text-xs">
                           by {book.author}
                         </p>
                         
                         {/* Genre Badge */}
                         <div className="flex items-center justify-between">
-                          <span className="bg-[#F0E6D6] text-[#6D4C41] text-xs font-semibold px-3 py-1 rounded-full">
+                          <span className="bg-[#F0E6D6] text-[#6D4C41] text-xs font-medium px-2 py-1 rounded-full">
                             {book.genre}
                           </span>
-                          <div className="flex items-center text-xs text-gray-500">
-                            <Calendar className="w-3 h-3 mr-1" />
-                            {formatDate(book.createdAt)}
-                          </div>
                         </div>
                       </div>
                     </Link>

@@ -10,11 +10,11 @@ const stats = [
 
 export default function SiteStats() {
   return (
-    <section className="bg-[#FAF3ED] px-6 md:px-16 py-20">
-      <h2 className="text-3xl font-bold text-[#5D4037] mb-12 text-center">
+    <section className="bg-[#FAF3ED] px-4 sm:px-6 md:px-16 py-16 sm:py-20">
+      <h2 className="text-2xl sm:text-3xl font-bold text-[#5D4037] mb-8 sm:mb-12 text-center">
         Our <span className="text-[#A47148]">Journey</span> So Far
       </h2>
-      <div className="grid md:grid-cols-3 gap-8 text-center">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8 text-center">
         {stats.map((s, i) => (
           <motion.div
             key={s.label}

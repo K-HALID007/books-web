@@ -8,11 +8,11 @@ const steps = [
 
 export default function HowItWorks() {
   return (
-    <section className="bg-white px-6 md:px-16 py-20">
-      <h2 className="text-3xl font-bold text-[#5D4037] mb-12 text-center">
+    <section className="bg-white px-4 sm:px-6 md:px-16 py-16 sm:py-20">
+      <h2 className="text-2xl sm:text-3xl font-bold text-[#5D4037] mb-8 sm:mb-12 text-center">
         How <span className="text-[#A47148]">BookVault</span> Works
       </h2>
-      <div className="grid md:grid-cols-3 gap-10 text-center">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-10 text-center">
         {steps.map((s, i) => (
           <div
             key={s.step}

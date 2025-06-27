@@ -106,12 +106,12 @@ const MyLibraryMain = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-[#5D4037] flex items-center justify-center gap-4 mb-4">
             <BookOpen className="w-12 h-12 lg:w-16 lg:h-16 text-[#A47148]" />
-            My Library
+            My Collection
           </h1>
           <p className="text-[#6B4F3F] text-lg sm:text-xl max-w-2xl mx-auto">
             {books.length === 0 
-              ? "Your personal PDF library awaits" 
-              : `${books.length} PDF ${books.length === 1 ? 'book' : 'books'} in your personal library`
+              ? "Your personal PDF collection awaits" 
+              : `${books.length} PDF ${books.length === 1 ? 'book' : 'books'} in your personal collection`
             }
           </p>
           {books.length > 0 && (
@@ -136,9 +136,9 @@ const MyLibraryMain = () => {
           <div className="text-center py-20">
             <div className="bg-white rounded-2xl shadow-lg p-12 max-w-md mx-auto">
               <BookOpen className="w-20 h-20 text-[#D7CCC8] mx-auto mb-6" />
-              <h2 className="text-3xl font-bold text-[#5D4037] mb-4">Start Your Library</h2>
+              <h2 className="text-3xl font-bold text-[#5D4037] mb-4">Start Your Collection</h2>
               <p className="text-[#6B4F3F] mb-8 leading-relaxed">
-                Begin building your personal PDF library. Upload your PDF books and they'll automatically include your library poster as the first page.
+                Begin building your personal PDF collection. Upload your PDF books and they'll automatically include your library poster as the first page.
               </p>
               <Link href="/upload">
                 <button className="bg-[#6D4C41] hover:bg-[#5D4037] text-white font-semibold px-8 py-4 rounded-xl transition-all duration-200 flex items-center gap-3 mx-auto shadow-lg hover:shadow-xl">

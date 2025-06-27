@@ -2,11 +2,13 @@
 import Link from "next/link";
 import { BookMarked, Upload, Menu, X, LogOut, User } from "lucide-react";
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import UserDropdown from "@/components/navbar/user-dropdown";
 
 const Navbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const pathname = usePathname();
   const { isAuthenticated, user, logout } = useAuth();
 
   const toggleMobileMenu = () => {
@@ -16,6 +18,12 @@ const Navbar = () => {
   const handleLogout = () => {
     logout();
     setIsMobileMenuOpen(false);
+  };
+
+  const isActiveLink = (href) => {
+    if (href === "/" && pathname === "/") return true;
+    if (href !== "/" && pathname.startsWith(href)) return true;
+    return false;
   };
 
   return (
@@ -32,7 +40,11 @@ const Navbar = () => {
           <li>
             <Link
               href="/"
-              className="hover:text-[#FFD180] transition-colors duration-200"
+              className={`hover:text-[#FFD180] transition-colors duration-200 ${
+                isActiveLink("/") 
+                  ? "text-[#FFD180] border-b-2 border-[#FFD180] pb-1" 
+                  : ""
+              }`}
             >
               Home
             </Link>
@@ -40,9 +52,13 @@ const Navbar = () => {
           <li>
             <Link
               href="/my-books"
-              className="hover:text-[#FFD180] transition-colors duration-200"
+              className={`hover:text-[#FFD180] transition-colors duration-200 ${
+                isActiveLink("/my-books") 
+                  ? "text-[#FFD180] border-b-2 border-[#FFD180] pb-1" 
+                  : ""
+              }`}
             >
-              All Books
+            Books
             </Link>
           </li>
           {isAuthenticated && (
@@ -50,9 +66,13 @@ const Navbar = () => {
               <li>
                 <Link
                   href="/my-library"
-                  className="hover:text-[#FFD180] transition-colors duration-200"
+                  className={`hover:text-[#FFD180] transition-colors duration-200 ${
+                    isActiveLink("/my-library") 
+                      ? "text-[#FFD180] border-b-2 border-[#FFD180] pb-1" 
+                      : ""
+                  }`}
                 >
-                  My Library
+                  My Collection
                 </Link>
               </li>
             </>
@@ -60,9 +80,37 @@ const Navbar = () => {
           <li>
             <Link
               href="/contact"
-              className="hover:text-[#FFD180] transition-colors duration-200"
+              className={`hover:text-[#FFD180] transition-colors duration-200 ${
+                isActiveLink("/contact") 
+                  ? "text-[#FFD180] border-b-2 border-[#FFD180] pb-1" 
+                  : ""
+              }`}
             >
               Contact
+            </Link>
+          </li>
+          <li>
+            <Link
+              href="/privacy"
+              className={`hover:text-[#FFD180] transition-colors duration-200 ${
+                isActiveLink("/privacy") 
+                  ? "text-[#FFD180] border-b-2 border-[#FFD180] pb-1" 
+                  : ""
+              }`}
+            >
+              Privacy Policy
+            </Link>
+          </li>
+          <li>
+            <Link
+              href="/terms"
+              className={`hover:text-[#FFD180] transition-colors duration-200 ${
+                isActiveLink("/terms") 
+                  ? "text-[#FFD180] border-b-2 border-[#FFD180] pb-1" 
+                  : ""
+              }`}
+            >
+             Terms & Conditions
             </Link>
           </li>
         </ul>
@@ -119,7 +167,11 @@ const Navbar = () => {
                 <li>
                   <Link
                     href="/"
-                    className="block text-white hover:text-[#FFD180] hover:bg-[#4E342E] transition-all duration-200 py-3 px-4 rounded-lg font-medium"
+                    className={`block hover:text-[#FFD180] hover:bg-[#4E342E] transition-all duration-200 py-3 px-4 rounded-lg font-medium ${
+                      isActiveLink("/") 
+                        ? "text-[#FFD180] bg-[#4E342E]" 
+                        : "text-white"
+                    }`}
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
                     Home
@@ -128,10 +180,14 @@ const Navbar = () => {
                 <li>
                   <Link
                     href="/my-books"
-                    className="block text-white hover:text-[#FFD180] hover:bg-[#4E342E] transition-all duration-200 py-3 px-4 rounded-lg font-medium"
+                    className={`block hover:text-[#FFD180] hover:bg-[#4E342E] transition-all duration-200 py-3 px-4 rounded-lg font-medium ${
+                      isActiveLink("/my-books") 
+                        ? "text-[#FFD180] bg-[#4E342E]" 
+                        : "text-white"
+                    }`}
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
-                    All Books
+                  Books
                   </Link>
                 </li>
                 {isAuthenticated && (
@@ -139,10 +195,14 @@ const Navbar = () => {
                     <li>
                       <Link
                         href="/my-library"
-                        className="block text-white hover:text-[#FFD180] hover:bg-[#4E342E] transition-all duration-200 py-3 px-4 rounded-lg font-medium"
+                        className={`block hover:text-[#FFD180] hover:bg-[#4E342E] transition-all duration-200 py-3 px-4 rounded-lg font-medium ${
+                          isActiveLink("/my-library") 
+                            ? "text-[#FFD180] bg-[#4E342E]" 
+                            : "text-white"
+                        }`}
                         onClick={() => setIsMobileMenuOpen(false)}
                       >
-                        My Library
+                        My Collection
                       </Link>
                     </li>
                   </>
@@ -150,10 +210,40 @@ const Navbar = () => {
                 <li>
                   <Link
                     href="/contact"
-                    className="block text-white hover:text-[#FFD180] hover:bg-[#4E342E] transition-all duration-200 py-3 px-4 rounded-lg font-medium"
+                    className={`block hover:text-[#FFD180] hover:bg-[#4E342E] transition-all duration-200 py-3 px-4 rounded-lg font-medium ${
+                      isActiveLink("/contact") 
+                        ? "text-[#FFD180] bg-[#4E342E]" 
+                        : "text-white"
+                    }`}
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
                     Contact
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/privacy"
+                    className={`block hover:text-[#FFD180] hover:bg-[#4E342E] transition-all duration-200 py-3 px-4 rounded-lg font-medium ${
+                      isActiveLink("/privacy") 
+                        ? "text-[#FFD180] bg-[#4E342E]" 
+                        : "text-white"
+                    }`}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Privacy Policy
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/terms"
+                    className={`block hover:text-[#FFD180] hover:bg-[#4E342E] transition-all duration-200 py-3 px-4 rounded-lg font-medium ${
+                      isActiveLink("/terms") 
+                        ? "text-[#FFD180] bg-[#4E342E]" 
+                        : "text-white"
+                    }`}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Terms &amp; Conditions
                   </Link>
                 </li>
               </ul>
