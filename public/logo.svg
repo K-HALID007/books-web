@@ -1,0 +1,8 @@
+<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="48" height="48" rx="10" fill="#5D4037"></rect>
+  <path d="M16 14C16 13.4477 16.4477 13 17 13H33C33.5523 13 34 13.4477 34 14V34C34 34.5523 33.5523 35 33 35H17C16.4477 35 16 34.5523 16 34V14Z" fill="#F4EDE4"></path>
+  <path d="M18 16H32V32H18V16Z" fill="#A47148"></path>
+  <path d="M20 20H30V22H20V20Z" fill="#F4EDE4"></path>
+  <path d="M20 24H30V26H20V24Z" fill="#F4EDE4"></path>
+  <text x="24" y="44" text-anchor="middle" fill="#F4EDE4" font-size="5" font-family="serif">BookVault</text>
+</svg>
