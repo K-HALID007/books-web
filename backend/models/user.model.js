@@ -3,7 +3,16 @@ import bcrypt from 'bcryptjs';
 
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
+  firstName: { type: String },
+  lastName: { type: String },
   email: { type: String, required: true, unique: true },
+  phone: { type: String },
+  dateOfBirth: { type: Date },
+  gender: { type: String, enum: ['male', 'female', 'other', 'prefer-not-to-say'] },
+  country: { type: String },
+  city: { type: String },
+  favoriteGenres: [{ type: String }],
+  bio: { type: String },
   password: { type: String, required: true },
 }, { timestamps: true });
 

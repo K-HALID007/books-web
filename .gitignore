@@ -1,0 +1,16 @@
+# Directories to ignore
+backend/node_modules/
+my-books/node_modules/
+
+# VS Code settings and qodo meta
+.vscode/
+.qodo/
+
+# Logs
+*.log
+
+# Lock files
+*.lock
+
+# Environment files
+.env
