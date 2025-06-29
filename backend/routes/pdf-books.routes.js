@@ -198,7 +198,7 @@ router.get('/library-poster', protect, async (req, res) => {
 });
 
 // GET /api/pdf-books/:id/download - Download a PDF book with poster page
-router.get('/:id/download', protect, async (req, res) => {
+router.get('/:id/download', async (req, res) => {
   try {
     const book = await PDFBook.findById(req.params.id);
     
@@ -230,7 +230,7 @@ router.get('/:id/download', protect, async (req, res) => {
 });
 
 // POST /api/pdf-books/:id/download-count - Increment download count
-router.post('/:id/download-count', protect, async (req, res) => {
+router.post('/:id/download-count', async (req, res) => {
   try {
     const book = await PDFBook.findByIdAndUpdate(
       req.params.id,
