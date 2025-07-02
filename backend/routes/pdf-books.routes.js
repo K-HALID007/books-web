@@ -7,6 +7,8 @@ import PDFBook from '../models/PDFBook.model.js';
 import protect from '../middleware/authMiddleware.js';
 import pdfPosterService from '../services/pdfPosterService.js';
 import pdfCoverExtractor from '../services/pdfCoverExtractor.js';
+import { validatePDFBook, validateBookId, validatePagination, validateObjectId } from '../middleware/validation.js';
+import { validateFileUpload } from '../middleware/security.js';
 
 const router = express.Router();
 
@@ -43,26 +45,57 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage: storage,
   limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB limit for PDFs, 5MB for images
+    fileSize: parseInt(process.env.MAX_FILE_SIZE) || 50 * 1024 * 1024, // Use env variable
+    files: 2, // Maximum 2 files (PDF + cover image)
+    fieldSize: 1024 * 1024, // 1MB field size limit
+    fieldNameSize: 100, // Limit field name size
+    fields: 20 // Increased limit for form fields
   },
   fileFilter: (req, file, cb) => {
-    if (file.fieldname === 'pdf' && file.mimetype === 'application/pdf') {
-      cb(null, true);
-    } else if (file.fieldname === 'coverImage' && file.mimetype.startsWith('image/')) {
-      // Check image file size separately (5MB limit)
-      if (file.size > 5 * 1024 * 1024) {
-        cb(new Error('Cover image size must be less than 5MB'), false);
-      } else {
+    // Validate file types more strictly
+    const allowedPdfTypes = ['application/pdf'];
+    const allowedImageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    
+    // Check for malicious file names
+    const dangerousPatterns = [
+      /\.\./,  // Path traversal
+      /[<>:"|?*]/,  // Invalid filename characters
+      /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i,  // Windows reserved names
+      /^\./,  // Hidden files
+      /\.(exe|bat|cmd|scr|pif|com|dll|vbs|js|jar|app|deb|rpm)$/i  // Executable extensions
+    ];
+
+    for (const pattern of dangerousPatterns) {
+      if (pattern.test(file.originalname)) {
+        return cb(new Error('Invalid filename detected'), false);
+      }
+    }
+
+    if (file.fieldname === 'pdf') {
+      if (allowedPdfTypes.includes(file.mimetype)) {
         cb(null, true);
+      } else {
+        cb(new Error('Only PDF files are allowed for book upload'), false);
+      }
+    } else if (file.fieldname === 'coverImage') {
+      if (allowedImageTypes.includes(file.mimetype)) {
+        // Additional size check for images (5MB limit)
+        if (file.size && file.size > 5 * 1024 * 1024) {
+          cb(new Error('Cover image size must be less than 5MB'), false);
+        } else {
+          cb(null, true);
+        }
+      } else {
+        cb(new Error('Only JPEG, PNG, and WebP images are allowed for cover images'), false);
       }
     } else {
-      cb(new Error('Invalid file type'), false);
+      cb(new Error('Unexpected field name'), false);
     }
   }
 });
 
 // GET /api/pdf-books - Get all PDF books
-router.get('/', async (req, res) => {
+router.get('/', validatePagination, async (req, res) => {
   try {
     const books = await PDFBook.find({ isApproved: true })
       .populate('uploadedBy', 'name')
@@ -79,7 +112,7 @@ router.get('/', async (req, res) => {
 router.post('/upload', protect, upload.fields([
   { name: 'pdf', maxCount: 1 },
   { name: 'coverImage', maxCount: 1 }
-]), async (req, res) => {
+]), validateFileUpload, validatePDFBook, async (req, res) => {
   try {
     if (!req.files || !req.files.pdf) {
       return res.status(400).json({ message: 'No PDF file uploaded' });
@@ -198,7 +231,7 @@ router.get('/library-poster', protect, async (req, res) => {
 });
 
 // GET /api/pdf-books/:id/download - Download a PDF book with poster page
-router.get('/:id/download', async (req, res) => {
+router.get('/:id/download', protect, validateObjectId, async (req, res) => {
   try {
     const book = await PDFBook.findById(req.params.id);
     
@@ -230,7 +263,7 @@ router.get('/:id/download', async (req, res) => {
 });
 
 // POST /api/pdf-books/:id/download-count - Increment download count
-router.post('/:id/download-count', async (req, res) => {
+router.post('/:id/download-count', protect, validateObjectId, async (req, res) => {
   try {
     const book = await PDFBook.findByIdAndUpdate(
       req.params.id,
@@ -251,7 +284,7 @@ router.post('/:id/download-count', async (req, res) => {
 });
 
 // GET /api/pdf-books/my-books - Get user's uploaded books
-router.get('/my-books', protect, async (req, res) => {
+router.get('/my-books', protect, validatePagination, async (req, res) => {
   try {
     const books = await PDFBook.find({ uploadedBy: req.user._id })
       .sort({ uploadedAt: -1 });
@@ -264,7 +297,7 @@ router.get('/my-books', protect, async (req, res) => {
 });
 
 // DELETE /api/pdf-books/:id - Delete a PDF book
-router.delete('/:id', protect, async (req, res) => {
+router.delete('/:id', protect, validateObjectId, async (req, res) => {
   try {
     const book = await PDFBook.findById(req.params.id);
     

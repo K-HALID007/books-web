@@ -4,9 +4,11 @@ import { motion } from 'framer-motion';
 import { Download, Eye, FileText, User, Calendar, Tag, Search, Filter } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { pdfBooksAPI } from '@/lib/api';
+import { useRouter } from 'next/navigation';
 
 const PDFLibrary = () => {
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
+  const router = useRouter();
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -91,6 +93,15 @@ const PDFLibrary = () => {
     });
 
   const handleDownload = async (book) => {
+    // Check if user is authenticated
+    if (!isAuthenticated) {
+      // Show a message and redirect to sign-in page
+      if (window.confirm('You need to sign in to download books. Would you like to sign in now?')) {
+        router.push('/signin?message=Please sign in to download books');
+      }
+      return;
+    }
+
     try {
       // Increment download count first
       await pdfBooksAPI.incrementDownload(book._id);
@@ -115,11 +126,25 @@ const PDFLibrary = () => {
       
     } catch (error) {
       console.error('Download failed:', error);
-      alert('Download failed. Please try again.');
+      if (error.message.includes('401') || error.message.includes('unauthorized')) {
+        alert('Your session has expired. Please sign in again.');
+        router.push('/signin?message=Session expired. Please sign in again.');
+      } else {
+        alert('Download failed. Please try again.');
+      }
     }
   };
 
   const handlePreview = (book) => {
+    // Check if user is authenticated
+    if (!isAuthenticated) {
+      // Show a message and redirect to sign-in page
+      if (window.confirm('You need to sign in to preview books. Would you like to sign in now?')) {
+        router.push('/signin?message=Please sign in to preview books');
+      }
+      return;
+    }
+
     // For now, show an alert. In a real implementation, you could:
     // 1. Open PDF in a modal with PDF viewer
     // 2. Open in new tab with PDF.js
@@ -267,22 +292,39 @@ const PDFLibrary = () => {
               </div>
 
               {/* Actions */}
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handlePreview(book)}
-                  className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2"
-                >
-                  <Eye className="w-4 h-4" />
-                  Preview
-                </button>
-                <button
-                  onClick={() => handleDownload(book)}
-                  className="flex-1 bg-[#6D4C41] hover:bg-[#5D4037] text-white px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2"
-                  title="Download with your library poster as first page"
-                >
-                  <Download className="w-4 h-4" />
-                  Download
-                </button>
+              <div className="space-y-3">
+                {!isAuthenticated && (
+                  <div className="bg-[#D7CCC8] border border-[#A47148]/30 rounded-md p-2">
+                    <p className="text-[#5D4037] text-xs">
+                      <strong>Account required</strong> to download and preview books.
+                    </p>
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handlePreview(book)}
+                    className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+                      isAuthenticated 
+                        ? 'bg-gray-100 hover:bg-gray-200 text-gray-700' 
+                        : 'bg-gray-200 hover:bg-gray-300 text-gray-600'
+                    }`}
+                  >
+                    <Eye className="w-4 h-4" />
+                    {isAuthenticated ? 'Preview' : 'Sign in to Preview'}
+                  </button>
+                  <button
+                    onClick={() => handleDownload(book)}
+                    className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+                      isAuthenticated 
+                        ? 'bg-[#6D4C41] hover:bg-[#5D4037] text-white' 
+                        : 'bg-gray-300 hover:bg-gray-400 text-gray-700'
+                    }`}
+                    title={isAuthenticated ? "Download with your library poster as first page" : "Sign in to download"}
+                  >
+                    <Download className="w-4 h-4" />
+                    {isAuthenticated ? 'Download' : 'Sign in to Download'}
+                  </button>
+                </div>
               </div>
             </div>
           </motion.div>

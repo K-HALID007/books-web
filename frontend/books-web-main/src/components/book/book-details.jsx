@@ -9,7 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 
 const BookDetails = ({ bookId }) => {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const [book, setBook] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
@@ -122,8 +122,18 @@ const BookDetails = ({ bookId }) => {
   };
 
   const handleDownloadPDF = async () => {
+    // Check if user is authenticated
+    if (!isAuthenticated) {
+      // Show a message and redirect to sign-in page
+      if (window.confirm('You need to sign in to download books. Would you like to sign in now?')) {
+        router.push('/signin?message=Please sign in to download books');
+      }
+      return;
+    }
+
     try {
       // increment download count first
+      await pdfBooksAPI.incrementDownload(book._id);
       const blob = await pdfBooksAPI.downloadPDFBook(book._id);
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -135,17 +145,36 @@ const BookDetails = ({ bookId }) => {
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Error downloading PDF:', error);
-      alert(error.message || 'Failed to download PDF');
+      if (error.message.includes('401') || error.message.includes('unauthorized')) {
+        alert('Your session has expired. Please sign in again.');
+        router.push('/signin?message=Session expired. Please sign in again.');
+      } else {
+        alert(error.message || 'Failed to download PDF');
+      }
     }
   };
 
   const handleReadOnline = async () => {
+    // Check if user is authenticated
+    if (!isAuthenticated) {
+      // Show a message and redirect to sign-in page
+      if (window.confirm('You need to sign in to read books online. Would you like to sign in now?')) {
+        router.push('/signin?message=Please sign in to read books online');
+      }
+      return;
+    }
+
     try {
       const blob = await pdfBooksAPI.downloadPDFBook(book._id);
       openBlobInNewTab(blob);
     } catch (error) {
       console.error('Error loading PDF:', error);
-      alert(error.message || 'Failed to open PDF');
+      if (error.message.includes('401') || error.message.includes('unauthorized')) {
+        alert('Your session has expired. Please sign in again.');
+        router.push('/signin?message=Session expired. Please sign in again.');
+      } else {
+        alert(error.message || 'Failed to open PDF');
+      }
     }
   };
 
@@ -367,21 +396,38 @@ const BookDetails = ({ bookId }) => {
 
                   {/* Download Button for PDF Books */}
                   {book.isPDF && (
-                    <div className="pt-4 flex gap-4 flex-wrap">
-                      <button
-                        onClick={handleDownloadPDF}
-                        className="flex items-center gap-2 bg-[#6D4C41] hover:bg-[#5D4037] text-white font-semibold px-6 py-3 rounded-lg transition-all duration-200"
-                      >
-                        <Download className="w-4 h-4" />
-                        Download PDF
-                      </button>
-                      <button
-                        onClick={handleReadOnline}
-                        className="flex items-center gap-2 bg-[#A47148] hover:bg-[#8a5d32] text-white font-semibold px-6 py-3 rounded-lg transition-all duration-200"
-                      >
-                        <Eye className="w-4 h-4" />
-                        Read Online
-                      </button>
+                    <div className="pt-4 space-y-4">
+                      {!isAuthenticated && (
+                        <div className="bg-[#D7CCC8] border border-[#A47148]/30 rounded-lg p-4">
+                          <p className="text-[#5D4037] text-sm">
+                            <strong>Account required:</strong> Sign in to download and read books.
+                          </p>
+                        </div>
+                      )}
+                      <div className="flex gap-4 flex-wrap">
+                        <button
+                          onClick={handleDownloadPDF}
+                          className={`flex items-center gap-2 font-semibold px-6 py-3 rounded-lg transition-all duration-200 ${
+                            isAuthenticated 
+                              ? 'bg-[#6D4C41] hover:bg-[#5D4037] text-white' 
+                              : 'bg-gray-300 hover:bg-gray-400 text-gray-700'
+                          }`}
+                        >
+                          <Download className="w-4 h-4" />
+                          {isAuthenticated ? 'Download PDF' : 'Sign in to Download'}
+                        </button>
+                        <button
+                          onClick={handleReadOnline}
+                          className={`flex items-center gap-2 font-semibold px-6 py-3 rounded-lg transition-all duration-200 ${
+                            isAuthenticated 
+                              ? 'bg-[#A47148] hover:bg-[#8a5d32] text-white' 
+                              : 'bg-gray-300 hover:bg-gray-400 text-gray-700'
+                          }`}
+                        >
+                          <Eye className="w-4 h-4" />
+                          {isAuthenticated ? 'Read Online' : 'Sign in to Read'}
+                        </button>
+                      </div>
                     </div>
                   )}
 

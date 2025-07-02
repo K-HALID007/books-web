@@ -145,6 +145,35 @@ const MyBooksMain = () => {
   return (
     <div className="min-h-screen bg-[#F4EDE4] pt-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        {/* Welcome Banner for non-authenticated users */}
+        {!isAuthenticated && books.length > 0 && (
+          <div className="bg-gradient-to-r from-[#6D4C41] to-[#A47148] rounded-xl p-6 mb-6 text-white shadow-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <h3 className="text-xl font-bold mb-2">Welcome to BookVault</h3>
+                <p className="text-white/90 mb-3">
+                  Access our curated collection of digital books and publications. Sign in to download premium content and share your own collection.
+                </p>
+                <div className="flex flex-wrap gap-3">
+                  <Link href="/signin">
+                    <button className="bg-white text-[#6D4C41] font-semibold px-6 py-2 rounded-lg hover:bg-gray-100 transition-colors">
+                      Sign In
+                    </button>
+                  </Link>
+                  <Link href="/signup">
+                    <button className="bg-white/20 text-white font-semibold px-6 py-2 rounded-lg hover:bg-white/30 transition-colors border border-white/30">
+                      Create Account
+                    </button>
+                  </Link>
+                </div>
+              </div>
+              <div className="hidden md:block">
+                <BookOpen className="w-16 h-16 text-white/30" />
+              </div>
+            </div>
+          </div>
+        )}
+
         {books.length === 0 ? (
           // Enhanced Empty State
           <div className="text-center py-20">

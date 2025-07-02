@@ -5,9 +5,23 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import connectDB from './config/db.js';
 
+// Import routes
 import authRoutes from './routes/auth.routes.js';
 import bookRoutes from './routes/book.routes.js';
 import pdfBookRoutes from './routes/pdf-books.routes.js';
+
+// Import security middleware
+import {
+  generalLimiter,
+  authLimiter,
+  uploadLimiter,
+  securityHeaders,
+  mongoSanitizer,
+  parameterPollutionPrevention,
+  compressionMiddleware,
+  securityLogger,
+  validateFileUpload
+} from './middleware/security.js';
 
 // Get __dirname equivalent for ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -18,15 +32,64 @@ connectDB();
 
 const app = express();
 
-// CORS configuration
+// Trust proxy for accurate IP addresses (important for rate limiting)
+app.set('trust proxy', 1);
+
+// Security middleware - order matters!
+app.use(securityHeaders);
+app.use(compressionMiddleware);
+app.use(securityLogger);
+
+// Rate limiting - apply before other middleware
+app.use('/api/auth', authLimiter);
+app.use('/api/pdf-books/upload', uploadLimiter);
+app.use('/api', generalLimiter);
+
+// CORS configuration - more restrictive
+const allowedOrigins = process.env.FRONTEND_URL 
+  ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
+  : ['http://localhost:3000'];
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  credentials: true
+  origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, etc.)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    } else {
+      console.warn(`🚨 CORS: Blocked request from unauthorized origin: ${origin}`);
+      return callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  maxAge: 86400 // 24 hours
 }));
 
-// Body parser middleware with increased limits for file uploads
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+// Data sanitization middleware
+app.use(mongoSanitizer);
+app.use(parameterPollutionPrevention);
+
+// Body parser middleware with security limits
+const maxFileSize = parseInt(process.env.MAX_FILE_SIZE) || 50 * 1024 * 1024; // 50MB
+app.use(express.json({ 
+  limit: '10mb', // Reduced from 50mb for JSON
+  verify: (req, res, buf) => {
+    // Verify JSON payload isn't malicious
+    try {
+      JSON.parse(buf);
+    } catch (e) {
+      throw new Error('Invalid JSON payload');
+    }
+  }
+}));
+app.use(express.urlencoded({ 
+  limit: '10mb', 
+  extended: true,
+  parameterLimit: 100 // Limit number of parameters
+}));
 
 // Serve static files (uploaded PDFs and cover images)
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -47,23 +110,83 @@ app.get('/api/health', (req, res) => {
 
 // Error handling middleware
 app.use((error, req, res, next) => {
-  console.error('Error:', error);
+  // Log error details for monitoring (but don't expose to client)
+  console.error('🚨 ERROR:', {
+    message: error.message,
+    stack: error.stack,
+    url: req.originalUrl,
+    method: req.method,
+    ip: req.ip,
+    userAgent: req.get('User-Agent'),
+    timestamp: new Date().toISOString()
+  });
   
+  // Handle specific error types
   if (error.code === 'LIMIT_FILE_SIZE') {
     return res.status(400).json({ 
-      message: 'File too large. Maximum size is 50MB.' 
+      error: `File too large. Maximum size is ${Math.round(maxFileSize / 1024 / 1024)}MB.`
+    });
+  }
+  
+  if (error.code === 'LIMIT_FIELD_COUNT') {
+    return res.status(400).json({ 
+      error: 'Too many form fields. Please reduce the number of fields in your request.'
+    });
+  }
+  
+  if (error.code === 'LIMIT_UNEXPECTED_FILE') {
+    return res.status(400).json({ 
+      error: 'Unexpected file field. Please check your form configuration.'
+    });
+  }
+  
+  if (error.message === 'Too many fields') {
+    return res.status(400).json({ 
+      error: 'Too many form fields. Please reduce the number of fields in your request.'
     });
   }
   
   if (error.message === 'Only PDF files are allowed') {
     return res.status(400).json({ 
-      message: 'Only PDF files are allowed for upload.' 
+      error: 'Only PDF files are allowed for upload.'
     });
   }
   
+  if (error.message === 'Invalid JSON payload') {
+    return res.status(400).json({
+      error: 'Invalid request format'
+    });
+  }
+  
+  if (error.message.includes('CORS')) {
+    return res.status(403).json({
+      error: 'Access denied'
+    });
+  }
+  
+  if (error.name === 'ValidationError') {
+    return res.status(400).json({
+      error: 'Validation failed',
+      details: Object.values(error.errors).map(err => err.message)
+    });
+  }
+  
+  if (error.name === 'CastError') {
+    return res.status(400).json({
+      error: 'Invalid ID format'
+    });
+  }
+  
+  if (error.code === 11000) {
+    return res.status(400).json({
+      error: 'Duplicate entry detected'
+    });
+  }
+  
+  // Generic error response (don't expose internal details)
   res.status(500).json({ 
-    message: 'Internal server error',
-    error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    error: 'Internal server error',
+    ...(process.env.NODE_ENV === 'development' && { details: error.message })
   });
 });
 

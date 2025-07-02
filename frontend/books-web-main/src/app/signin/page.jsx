@@ -1,6 +1,6 @@
 import Navbar from "@/components/home/navbar/navbar";
 import SignInHeader from "@/components/auth/signin-header";
-import SignInForm from "@/components/auth/signin-form";
+import SignInFormWrapper from "@/components/auth/signin-form-wrapper";
 
 const SignInPage = () => {
   return (
@@ -8,7 +8,7 @@ const SignInPage = () => {
       <Navbar />
       <div className="min-h-screen bg-[#F4EDE4] pt-20">
         <SignInHeader />
-        <SignInForm />
+        <SignInFormWrapper />
       </div>
     </>
   );

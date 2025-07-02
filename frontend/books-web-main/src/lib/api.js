@@ -141,7 +141,18 @@ export const pdfBooksAPI = {
     });
 
     if (!response.ok) {
-      throw new Error('Download failed');
+      // Try to get error message from response
+      let errorMessage = 'Download failed';
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.message || errorMessage;
+      } catch (e) {
+        // If response is not JSON, use status text
+        errorMessage = response.statusText || errorMessage;
+      }
+      
+      // Add status code to error message for debugging
+      throw new Error(`${errorMessage} (Status: ${response.status})`);
     }
 
     return response.blob();
