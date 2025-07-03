@@ -66,7 +66,7 @@ const MyBooksMain = () => {
           isPDF: true,
           // Ensure consistent field names
           coverImage: book.coverImage || book.cover,
-          genre: book.category || book.genre
+          genre: book.genre || book.category || 'Non-Fiction' // Genre first, then category as fallback
         }));
 
         // Combine all books

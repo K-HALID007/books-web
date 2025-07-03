@@ -21,6 +21,24 @@ const pdfBookSchema = new mongoose.Schema({
     enum: ['personal', 'public-domain', 'educational', 'self-published', 'research'],
     default: 'personal'
   },
+  genre: {
+    type: String,
+    trim: true,
+    default: 'Non-Fiction'
+  },
+  publishedYear: {
+    type: String,
+    trim: true
+  },
+  language: {
+    type: String,
+    trim: true,
+    default: 'English'
+  },
+  pageCount: {
+    type: String,
+    trim: true
+  },
   isPublicDomain: {
     type: Boolean,
     default: false

@@ -39,7 +39,7 @@ const BookDetails = ({ bookId }) => {
           ...b,
           isPDF: true,
           coverImage: b.coverImage || b.cover,
-  genre: b.category || b.genre
+          genre: b.genre || b.category || 'Non-Fiction' // Genre first, then category as fallback
         }));
 
         const allBooks = [...regularBooks, ...markedPDFBooks];

@@ -112,7 +112,10 @@ router.get('/', validatePagination, async (req, res) => {
 router.post('/upload', protect, upload.fields([
   { name: 'pdf', maxCount: 1 },
   { name: 'coverImage', maxCount: 1 }
-]), validateFileUpload, validatePDFBook, async (req, res) => {
+]), validateFileUpload, async (req, res) => {
+  // Log request body for debugging
+  console.log('Upload request body:', req.body);
+  console.log('Upload request files:', req.files ? Object.keys(req.files) : 'No files');
   try {
     if (!req.files || !req.files.pdf) {
       return res.status(400).json({ message: 'No PDF file uploaded' });
@@ -128,18 +131,59 @@ router.post('/upload', protect, upload.fields([
       category,
       isPublicDomain,
       uploadReason,
-      uploaderName
+      uploaderName,
+      genre,
+      publishedYear,
+      language,
+      pageCount
     } = req.body;
 
-    // Validate required fields
-    if (!title || !author || !uploadReason) {
+    console.log('Extracted fields:', {
+      title: title ? `"${title}" (${title.length} chars)` : 'MISSING',
+      author: author ? `"${author}" (${author.length} chars)` : 'MISSING',
+      uploadReason: uploadReason ? `"${uploadReason}" (${uploadReason.length} chars)` : 'MISSING',
+      category: category || 'undefined',
+      genre: genre || 'undefined'
+    });
+
+    // Validate required fields with better error messages
+    if (!title || title.trim().length === 0) {
       // Delete uploaded files if validation fails
       fs.unlinkSync(pdfFile.path);
       if (coverImageFile) {
         fs.unlinkSync(coverImageFile.path);
       }
       return res.status(400).json({ 
-        message: 'Title, author, and upload reason are required' 
+        message: 'Title is required and cannot be empty',
+        field: 'title',
+        received: title
+      });
+    }
+
+    if (!author || author.trim().length === 0) {
+      // Delete uploaded files if validation fails
+      fs.unlinkSync(pdfFile.path);
+      if (coverImageFile) {
+        fs.unlinkSync(coverImageFile.path);
+      }
+      return res.status(400).json({ 
+        message: 'Author is required and cannot be empty',
+        field: 'author',
+        received: author
+      });
+    }
+
+    if (!uploadReason || uploadReason.trim().length < 10) {
+      // Delete uploaded files if validation fails
+      fs.unlinkSync(pdfFile.path);
+      if (coverImageFile) {
+        fs.unlinkSync(coverImageFile.path);
+      }
+      return res.status(400).json({ 
+        message: 'Upload reason is required and must be at least 10 characters',
+        field: 'uploadReason',
+        received: uploadReason,
+        length: uploadReason ? uploadReason.length : 0
       });
     }
 
@@ -155,6 +199,10 @@ router.post('/upload', protect, upload.fields([
       author,
       description,
       category,
+      genre: genre || 'Non-Fiction',
+      publishedYear: publishedYear || '',
+      language: language || 'English',
+      pageCount: pageCount || '',
       isPublicDomain: isPublicDomain === 'true',
       uploadReason,
       uploadedBy: req.user._id,

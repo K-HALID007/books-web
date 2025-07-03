@@ -123,8 +123,26 @@ export const pdfBooksAPI = {
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ message: 'Upload failed' }));
-      throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+      let errorData;
+      try {
+        errorData = await response.json();
+      } catch (e) {
+        errorData = { message: 'Upload failed - Invalid response from server' };
+      }
+      
+      // Enhanced error message with validation details
+      let errorMessage = errorData.message || `HTTP ${response.status}: ${response.statusText}`;
+      
+      // If there are validation details, include them
+      if (errorData.details && Array.isArray(errorData.details)) {
+        const validationErrors = errorData.details.map(detail => 
+          `${detail.field}: ${detail.message}`
+        ).join('\n');
+        errorMessage += `\n\nValidation errors:\n${validationErrors}`;
+      }
+      
+      console.error('Upload error details:', errorData);
+      throw new Error(errorMessage);
     }
 
     return response.json();

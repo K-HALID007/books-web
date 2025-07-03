@@ -38,7 +38,7 @@ const MyLibraryMain = () => {
           // Ensure consistent field names
           coverImage: book.coverImage || book.cover,
           createdAt: book.uploadedAt || book.createdAt,
-          genre: book.category || book.genre
+          genre: book.genre || book.category || 'Non-Fiction' // Genre first, then category as fallback
         }));
 
         // Sort by upload date (newest first)

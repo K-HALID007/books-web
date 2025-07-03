@@ -217,14 +217,14 @@ export const validatePDFBook = [
     .trim()
     .isLength({ min: 1, max: 200 })
     .withMessage('Title must be between 1 and 200 characters')
-    .matches(/^[a-zA-Z0-9\s\-_:.,!?'"()&]+$/)
+    .matches(/^[a-zA-Z0-9\s\-_:.,!?'"()&@#$%+=\[\]{}|\\\/~`^*]+$/)
     .withMessage('Title contains invalid characters'),
   
   body('author')
     .trim()
     .isLength({ min: 1, max: 100 })
     .withMessage('Author must be between 1 and 100 characters')
-    .matches(/^[a-zA-Z\s\-'.,]+$/)
+    .matches(/^[a-zA-Z0-9\s\-'.,&@]+$/)
     .withMessage('Author name contains invalid characters'),
   
   body('description')
@@ -238,8 +238,8 @@ export const validatePDFBook = [
     .trim()
     .isLength({ max: 50 })
     .withMessage('Category must not exceed 50 characters')
-    .matches(/^[a-zA-Z\s\-]+$/)
-    .withMessage('Category can only contain letters, spaces, and hyphens'),
+    .matches(/^[a-zA-Z0-9\s\-_]+$/)
+    .withMessage('Category can only contain letters, numbers, spaces, hyphens, and underscores'),
   
   body('uploadReason')
     .trim()
