@@ -77,11 +77,16 @@ const maxFileSize = parseInt(process.env.MAX_FILE_SIZE) || 50 * 1024 * 1024; // 
 app.use(express.json({ 
   limit: '10mb', // Reduced from 50mb for JSON
   verify: (req, res, buf) => {
-    // Verify JSON payload isn't malicious
-    try {
-      JSON.parse(buf);
-    } catch (e) {
-      throw new Error('Invalid JSON payload');
+    // Only verify JSON payload if there's content and it's not empty
+    if (buf && buf.length > 0) {
+      try {
+        JSON.parse(buf);
+      } catch (e) {
+        // Only throw error if the content is not empty and fails to parse
+        if (buf.toString().trim().length > 0) {
+          throw new Error('Invalid JSON payload');
+        }
+      }
     }
   }
 }));

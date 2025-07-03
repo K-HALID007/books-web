@@ -161,7 +161,7 @@ router.post('/upload', protect, upload.fields([
       uploaderName: uploaderName || req.user.name,
       fileName: pdfFile.filename,
       originalName: pdfFile.originalname,
-      filePath: pdfFile.path,
+      filePath: path.join('uploads/pdf-books/', pdfFile.filename), // Store relative path
       fileSize: pdfFile.size,
       coverImage: coverImageUrl,
       uploadedAt: new Date(),
@@ -239,9 +239,14 @@ router.get('/:id/download', protect, validateObjectId, async (req, res) => {
       return res.status(404).json({ message: 'Book not found' });
     }
 
-    const filePath = path.resolve(book.filePath);
+    // Construct file path using filename instead of stored path
+    // This ensures compatibility even if the project is moved
+    const filePath = path.join(__dirname, '../uploads/pdf-books/', book.fileName);
     
     if (!fs.existsSync(filePath)) {
+      console.error(`File not found: ${filePath}`);
+      console.error(`Book filename: ${book.fileName}`);
+      console.error(`Stored filePath: ${book.filePath}`);
       return res.status(404).json({ message: 'File not found on server' });
     }
 
